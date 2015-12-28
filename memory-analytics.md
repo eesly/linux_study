@@ -116,6 +116,76 @@ struct mallinfo mi1,mi2;
 #endif
 ~~~
 
+####补充1-利用valgrind+gdb在调试时进行内存检查，定位内存泄露
+---
+基本原理：利用valgrind提供的内存分配函数，替换系统自带的内存分配，从而可以在gdb调试过程中，利用valgrind自带的对内存的分配使用的统计分析指令，进而定位在各个断点处的当前内存使用情况。具体使用步骤如下：
+######1、启动valgind
+~~~
+valgrind --vgdb-error=0 执行文件
+说明：其中--vgdb-error=n表示在发生n个错误后调用gdbserver
+~~~
+######2、启动gdb
+~~~
+gdb 执行文件
+然后在gdb终端中输入
+target remote |　/usr/lib/vgdb --pid=41430
+说明：/usr/lib/vgdb为vgdb路径; --pid=41430是上面启动的valgrind的进程号; target remote意思是Use a remote computer via a serial line, using a gdb-specific protocol. Specify the serial device it is connected to (e.g. /dev/ttyS0, /dev/ttya, COM1, etc.).
+~~~
+######3、在程序需要分析的地方设置断点
+~~~
+b 断点位置
+~~~
+######4、continue运行程序
+######5、当程序运行到待分析的断点处可以采用如下指令进行简单的内存使用情况的检查
+~~~
+monitor leak_check full reachable any limited 100
+monitor block_list num
+说明：monitor指令的意思是向远程端口发送一个指令，其后的指令下面将详细说明
+~~~
+######6、vgdb指令说明
+通过monitor向远程端口发送的指令可以通过在gdb中输入monitor help进行查看，查看内容如下
+~~~
+general valgrind monitor commands:
+  help [debug]            : monitor command help. With debug: + debugging commands
+  v.wait [<ms>]           : sleep <ms> (default 0) then continue
+  v.info all_errors       : show all errors found so far
+  v.info last_error       : show last error found
+  v.info n_errs_found [msg] : show the nr of errors found so far and the given msg
+  v.info open_fds         : show open file descriptors (only if --track-fds=yes)
+  v.kill                  : kill the Valgrind process
+  v.set gdb_output        : set valgrind output to gdb
+  v.set log_output        : set valgrind output to log
+  v.set mixed_output      : set valgrind output to log, interactive output to gdb
+  v.set merge-recursive-frames <num> : merge recursive calls in max <num> frames
+  v.set vgdb-error <errornr> : debug me at error >= <errornr> 
+
+memcheck monitor commands:
+  get_vbits <addr> [<len>]
+        returns validity bits for <len> (or 1) bytes at <addr>; bit values 0 = valid, 1 = invalid, __ = unaddressable byte
+        Example: get_vbits 0x8049c78 10
+  make_memory [noaccess|undefined|defined|Definedifaddressable] <addr> [<len>]
+        mark <len> (or 1) bytes at <addr> with the given accessibility
+  check_memory [addressable|defined] <addr> [<len>]
+        check that <len> (or 1) bytes at <addr> have the given accessibility and outputs a description of <addr>
+  leak_check [full*|summary]
+                [kinds kind1,kind2,...|reachable|possibleleak*|definiteleak]
+                [heuristics heur1,heur2,...]
+                [increased*|changed|any]
+                [unlimited*|limited <max_loss_records_output>]
+            * = defaults
+       where kind is one of definite indirect possible reachable all none
+       where heur is one of stdstring newarray multipleinheritance all none*
+        Examples: leak_check
+                  leak_check summary any
+                  leak_check full kinds indirect,possible
+                  leak_check full reachable any limited 100
+  block_list <loss_record_nr>
+        after a leak search, shows the list of blocks of <loss_record_nr>
+  who_points_at <addr> [<len>]
+        shows places pointing inside <len> (default 1) bytes at <addr>
+        (with len 1, only shows "start pointers" pointing exactly to <addr>, with len > 1, will also show "interior pointers")
+~~~
+
 ####reference
 ---
 - [ptmalloc](http://blog.csdn.net/phenics/article/details/777053)
