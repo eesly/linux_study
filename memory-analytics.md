@@ -199,4 +199,5 @@ memcheck monitor commands:
 - [Linux进程间通信——使用共享内存](http://blog.csdn.net/ljianhui/article/details/10253345)
 - [linux进程间的通信(C): 共享内存](http://blog.chinaunix.net/uid-26000296-id-3421346.html) 
 - [system V 共享内存](http://www.cnblogs.com/jeakon/archive/2012/05/27/2816812.html)
+- [Dumping contents of lost memory reported by Valgrind](http://stackoverflow.com/questions/12663283/dumping-contents-of-lost-memory-reported-by-valgrind)
 
