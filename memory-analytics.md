@@ -122,27 +122,26 @@ struct mallinfo mi1,mi2;
 ######1、启动valgind
 ~~~
 valgrind --vgdb-error=0 执行文件
-说明：其中--vgdb-error=n表示在发生n个错误后调用gdbserver
 ~~~
+其中--vgdb-error=n表示在发生n个错误后调用gdbserver
 ######2、启动gdb
 ~~~
 gdb 执行文件
-然后在gdb终端中输入
 target remote |　/usr/lib/vgdb --pid=41430
-说明：/usr/lib/vgdb为vgdb路径; --pid=41430是上面启动的valgrind的进程号; target remote意思是Use a remote computer via a serial line, using a gdb-specific protocol. Specify the serial device it is connected to (e.g. /dev/ttyS0, /dev/ttya, COM1, etc.).
 ~~~
-######3、在程序需要分析的地方设置断点
+/usr/lib/vgdb为vgdb路径; --pid=41430是上面启动的valgrind的进程号; target remote意思是Use a remote computer via a serial line, using a gdb-specific protocol. Specify the serial device it is connected to (e.g. /dev/ttyS0, /dev/ttya, COM1, etc.).
+######3、在程序需要分析的地方设置断点，然后运行程序
 ~~~
 b 断点位置
+continue
 ~~~
-######4、continue运行程序
-######5、当程序运行到待分析的断点处可以采用如下指令进行简单的内存使用情况的检查
+######4、当程序运行到待分析的断点处可以采用如下指令进行简单的内存使用情况的检查
 ~~~
 monitor leak_check full reachable any limited 100
 monitor block_list num
-说明：monitor指令的意思是向远程端口发送一个指令，其后的指令下面将详细说明
 ~~~
-######6、vgdb指令说明
+monitor指令的意思是向远程端口发送一个指令，其后的指令下面将详细说明
+######5、vgdb指令说明
 通过monitor向远程端口发送的指令可以通过在gdb中输入monitor help进行查看，查看内容如下
 ~~~
 general valgrind monitor commands:
