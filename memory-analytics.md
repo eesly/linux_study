@@ -184,6 +184,32 @@ memcheck monitor commands:
         shows places pointing inside <len> (default 1) bytes at <addr>
         (with len 1, only shows "start pointers" pointing exactly to <addr>, with len > 1, will also show "interior pointers")
 ~~~
+####补充2-利用gdb进程内存dump，定位内存泄露
+---
+基本原理：当程序发生内存泄露时，可以通过查看/proc/pid/smaps对应的堆段，大致确定内存的泄露在哪些内存段中，通过gdb的x命令可以将对应的内存dump出来，在存在符号表的前提下，则有可能分析出对应的内存是谁分配的，进而定位到内存的泄露的位置。具体步骤如下：
+######1、启动gdb挂载对应程序或直接利用gdb启动程序
+~~~
+gdb 
+attach pid
+或者
+gdb 程序命令行
+~~~
+######2、查看进行的smaps,确定感兴趣的堆段的起始地址和大小size
+~~~
+cat /proc/pid/smaps | grep heap -A 100 #显示smaps中heap行后面的100行
+eg.
+029e2000-041fe000 rw-p 00000000 00:00 0       [heap]
+Size:              24688 kB    虚拟地址空间大小 如果是64位程序的话则size=24688*1024/8=3160064
+...
+~~~
+######3、在gdb中利用x命令dump对应的内存，并保存成文件
+~~~
+set logging file log_file_name
+set logging on
+x/3160064a 0x029e2000 #x命令的用法，可以在gdb中输入help x查看
+set logging off
+~~~
+######4、log_file_name中会有很大冗余信息，利用shell的字符处理命令可以很快的过滤掉（eg. cat log_file_name | grep ".*<.*>.*"），之后利用存在的符号信息则可能分析出该段内存是谁分配的，进而定位内存泄露位置。
 
 ####reference
 ---
@@ -199,4 +225,5 @@ memcheck monitor commands:
 - [linux进程间的通信(C): 共享内存](http://blog.chinaunix.net/uid-26000296-id-3421346.html) 
 - [system V 共享内存](http://www.cnblogs.com/jeakon/archive/2012/05/27/2816812.html)
 - [Dumping contents of lost memory reported by Valgrind](http://stackoverflow.com/questions/12663283/dumping-contents-of-lost-memory-reported-by-valgrind)
+- [一种定位内存泄露的方法(Linux)](http://blog.csdn.net/lw1a2/article/details/5598006)
 
