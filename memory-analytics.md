@@ -74,7 +74,7 @@ MMUPageSize:           4 kB
 
 ######2、内存泄漏定位
 通过上面方法简单确定内存泄漏是大内存块还是小内存块未释放后，可以通过下面这个方法进行更进一步的定位泄漏的具体位置
-- malloc系列函数中有一个malloc_stats()，可以打印出当前程序所占用和正在使用的内存信息，打印信息如下
+- (1)malloc系列函数中有一个malloc_stats()，可以打印出当前程序所占用和正在使用的内存信息，打印信息如下
 ~~~c
 Arena 0:
 system bytes     =          0    占用的内存大小，不包括mmap分配的内存
@@ -89,7 +89,7 @@ max mmap bytes   =          0
 ~~~c
 #define PRINT_MEM(formats, args...) printf(formats, ##args);malloc_stats();
 ~~~
-- 还有另外一个函数mallinfo()提供更加详细的内存信息结构mallinfo，其具有如下成员，重点关注其中翻译的部分
+- (2)还有另外一个函数mallinfo()提供更加详细的内存信息结构mallinfo，其具有如下成员，重点关注其中翻译的部分
 ~~~c
 arena     brk分配的总内存大小byte
 ordblks   The number of ordinary (i.e., non-fastbin) free blocks.
@@ -115,6 +115,35 @@ struct mallinfo mi1,mi2;
                   if (mi1.hblkhd != mi2.hblkhd) fprintf(stderr, "%s consumed %d bytes\n", (x), mi2.hblkhd - mi1.hblkhd);
 #endif
 ~~~
+- (3)除了用上面宏嵌入需要分析的代码段之外，还可以封装上述函数并引入到待分析的程序，然后在gdb调试中，利用call命令动态的分析各个时刻的内存使用情况，相比而言这种方法更加灵活。具体实现步骤如下
+首先进行封装函数
+~~~
+eg.
+struct mallinfo FM1()
+{
+    M1; 
+    return mi1; 
+}
+
+struct mallinfo FM2(const char* x)
+{
+    M2(x);
+    return mi2;
+}
+~~~
+在需要分析的程序中引入这两个函数，然后在gdb调试时，在感兴趣的代码段前后设置断点front、断点end。
+然后当程序运行到front时，调用call FM1(),此时会输出如下信息
+~~~
+$1 = {arena = 0, ordblks = 1, smblks = 0, hblks = 1, hblkhd = 1097728, usmblks = 0, fsmblks = 0, uordblks = 0, 
+fordblks = 0, keepcost = 0}
+~~~
+当程序运行到end时，调用call FM2("test模块"),此时会输出如下信息
+~~~
+s test模块 consumed 134208 bytes
+$2 = {arena = 135168, ordblks = 2, smblks = 0, hblks = 1, hblkhd = 1097728, usmblks = 0, fsmblks = 0, 
+uordblks = 134208, fordblks = 960, keepcost = 704}
+~~~
+进而可以分析出test模块运行过程中的内存使用情况，利用这种方式可以动态的分析感兴趣的代码段中的内存的分配使用情况，进而分析可能的内存泄露位置
 
 ####补充1-利用valgrind+gdb在调试时进行内存检查，定位内存泄露
 ---
