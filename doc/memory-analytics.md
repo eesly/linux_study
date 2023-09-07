@@ -1,7 +1,7 @@
 # memory-analytics
-####linux内存分配模型+malloc/free+共享内存
+#### linux内存分配模型+malloc/free+共享内存
 ---
-######1、Linux虚拟地址空间分配
+###### 1、Linux虚拟地址空间分配
 Linux提供了两种系统调用用于手动内存分配，分别为brk和mmap
 
 ![虚拟内存分配示意图](http://upload-images.jianshu.io/upload_images/46850-2510a51d2e8575bd.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
@@ -11,7 +11,7 @@ Linux提供了两种系统调用用于手动内存分配，分别为brk和mmap
 - 2、调用mmap进行内存分配，实际上是申请一段虚拟地址空间（堆和栈之间的空闲区域），然后跟进实际是否进行读写操作，将该段内存区域与实际的物理内存（可以是主存、swap或者磁盘文件）进行映射。
  - 采用这个方式分配的内存在释放的时候，就直接将物理资源还给了系统
 
-######2、malloc/free
+###### 2、malloc/free
 malloc和free实现方式有很多种，基于上述模型gcc的malloc/free实现有如下特点
 - 2.1对于小的内存块malloc采用brk实现，对于大的内存块malloc采用mmap实现（例外，当采用brk分配内存块中空闲区块的大小足以满足当前的需要分配的大小时，直接分配这些空闲区块，即使此时需要分配的是大内存也不会采用mmap分配），这里内存的大和小可以利用下列函数进行调整
 ~~~c
@@ -24,7 +24,7 @@ mallopt(M_TRIM_THRESHOLD, value) 如果未设置这个阈值为128k
 man page还提到可以采用malloc_trim(pad)这个函数强制将top的空闲区域还给系统，pad是指在top上还保留多少空闲内存，如果为0则保留必要最小top内存（这个函数未准确验证）。此外，malloc在使用brk分配内存时会预分配一小段内存区域。
 - 2.3采用mmap分配的内存，在调用free后，就直接还给系统
 
-######3、共享内存
+###### 3、共享内存
 共享内存常用于进程间的通信，linux下的system v共享内存可以实现进程间快速通信，这里简单介绍system v共享内存对进程内存分配的影响
 - 1、system v共享内存通过映射特殊文件系统shm中的文件实现进程间的共享内存，基本使用流程如下
 ~~~
@@ -36,9 +36,9 @@ shmget创建共享内存->shmat将共享内存attach到进程地址空间中
 
 上述简单介绍了linux下进程内存空间分配管理有关的几个点（内容基本来自网上，不一定准确），在这个基础上，下面介绍一下在发生内存泄漏时候的一些简单检查和定位方法。
 
-####内存泄漏
+#### 内存泄漏
 ---
-######1、内存泄漏检测
+###### 1、内存泄漏检测
 - （1）、linux下内存泄漏检测有一款利器valgrind，简单使用方法如下，详细内容参见[valgrind manual](http://valgrind.org/docs/manual/mc-manual.html)
 ~~~c
 valgrind --track-origins=yes --leak-check=full --show-reachable=yes ./程序cmd
@@ -72,7 +72,7 @@ MMUPageSize:           4 kB
  - 上面的heap段就是采用brk分配的内存段，其中Rss是起实际占用的物理内存，由于brk的工作模式，在heap段占用很大的内存情况不一定是发生内存泄漏。有可能是不合理的malloc 和 free使用导致大量的内存锁片（这种时候通常也是表现为占用的大量的物理内存，但采用工具检查看不出有泄漏地方），但这也是程序的一个问题，此时可以重点关注程序里面分配的小块的内存分配和释放。
  - heap段之后连续的没有标明用途具有rw权限的地址段，通常是mmap分配的内存段，对于一个工作正常长期运行的进程，其mmap段分配占用的物理内存一定个稳定值，如果发现mmap分配的内存段占用的大小随时间增长则可以肯定发生了内存泄漏，并且通常是大的内存快分配未释放导致的。
 
-######2、内存泄漏定位
+###### 2、内存泄漏定位
 通过上面方法简单确定内存泄漏是大内存块还是小内存块未释放后，可以通过下面这个方法进行更进一步的定位泄漏的具体位置
 - (1)malloc系列函数中有一个malloc_stats()，可以打印出当前程序所占用和正在使用的内存信息，打印信息如下
 ~~~c
@@ -142,32 +142,32 @@ uordblks = 134208, fordblks = 960, keepcost = 704}
 ~~~
 进而可以分析出test模块运行过程中的内存使用情况，利用这种方式可以动态的分析感兴趣的代码段中的内存的分配使用情况，进而分析可能的内存泄露位置
 
-####补充1-利用valgrind+gdb在调试时进行内存检查，定位内存泄露
+#### 补充1-利用valgrind+gdb在调试时进行内存检查，定位内存泄露
 ---
 基本原理：利用valgrind提供的内存分配函数，替换系统自带的内存分配，从而可以在gdb调试过程中，利用valgrind自带的对内存的分配使用的统计分析指令，进而定位在各个断点处的当前内存使用情况。具体使用步骤如下：
-######1、启动valgind
+###### 1、启动valgind
 ~~~c
 valgrind --vgdb-error=0 执行文件
 ~~~
 其中8--vgdb-error=n表示在发生n个错误后调用gdbserver
-######2、启动gdb
+###### 2、启动gdb
 ~~~c
 gdb 执行文件
 target remote |　/usr/lib/vgdb --pid=41430
 ~~~
 /usr/lib/vgdb为vgdb路径; --pid=41430是上面启动的valgrind的进程号; target remote意思是Use a remote computer via a serial line, using a gdb-specific protocol. Specify the serial device it is connected to (e.g. /dev/ttyS0, /dev/ttya, COM1, etc.).
-######3、在程序需要分析的地方设置断点，然后运行程序
+###### 3、在程序需要分析的地方设置断点，然后运行程序
 ~~~c
 b 断点位置
 continue
 ~~~
-######4、当程序运行到待分析的断点处可以采用如下指令进行简单的内存使用情况的检查
+###### 4、当程序运行到待分析的断点处可以采用如下指令进行简单的内存使用情况的检查
 ~~~c
 monitor leak_check full reachable any limited 100
 monitor block_list num
 ~~~
 monitor指令的意思是向远程端口发送一个指令，其后的指令下面将详细说明
-######5、vgdb指令说明
+###### 5、vgdb指令说明
 通过monitor向远程端口发送的指令可以通过在gdb中输入monitor help进行查看，查看内容如下
 ~~~c
 general valgrind monitor commands:
@@ -210,17 +210,17 @@ memcheck monitor commands:
         shows places pointing inside <len> (default 1) bytes at <addr>
         (with len 1, only shows "start pointers" pointing exactly to <addr>, with len > 1, will also show "interior pointers")
 ~~~
-####补充2-利用gdb进程内存dump，定位内存泄露
+#### 补充2-利用gdb进程内存dump，定位内存泄露
 ---
 基本原理：当程序发生内存泄露时，可以通过查看/proc/pid/smaps对应的堆段，大致确定内存的泄露在哪些内存段中，通过gdb的x命令可以将对应的内存dump出来，在存在符号表的前提下，则有可能分析出对应的内存是谁分配的，进而定位到内存的泄露的位置。具体步骤如下：
-######1、启动gdb挂载对应程序或直接利用gdb启动程序
+###### 1、启动gdb挂载对应程序或直接利用gdb启动程序
 ~~~c
 gdb 
 attach pid
 或者
 gdb 程序命令行
 ~~~
-######2、查看进行的smaps,确定感兴趣的堆段的起始地址和大小size
+###### 2、查看进行的smaps,确定感兴趣的堆段的起始地址和大小size
 ~~~c
 cat /proc/pid/smaps | grep heap -A 100 #显示smaps中heap行后面的100行
 eg.
@@ -228,16 +228,16 @@ eg.
 Size:              24688 kB    虚拟地址空间大小 如果是64位程序的话则size=24688*1024/8=3160064
 ...
 ~~~
-######3、在gdb中利用x命令dump对应的内存，并保存成文件
+###### 3、在gdb中利用x命令dump对应的内存，并保存成文件
 ~~~c
 set logging file log_file_name
 set logging on
 x/3160064a 0x029e2000 #x命令的用法，可以在gdb中输入help x查看
 set logging off
 ~~~
-######4、log_file_name中会有很大冗余信息，利用shell的字符处理命令可以很快的过滤掉（eg. cat log_file_name | grep ".*<.*>.*"），之后利用存在的符号信息则可能分析出该段内存是谁分配的，进而定位内存泄露位置。
+###### 4、log_file_name中会有很大冗余信息，利用shell的字符处理命令可以很快的过滤掉（eg. cat log_file_name | grep ".*<.*>.*"），之后利用存在的符号信息则可能分析出该段内存是谁分配的，进而定位内存泄露位置。
 
-####reference
+#### reference
 ---
 - [ptmalloc](http://blog.csdn.net/phenics/article/details/777053)
 - [MALLINFO(3)](http://www.man7.org/linux/man-pages/man3/mallinfo.3.html) 
